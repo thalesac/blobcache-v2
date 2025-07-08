@@ -1,0 +1,105 @@
+{{- if (include "blobcache.createConfigmap" .) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "%s-configuration" (include "common.names.fullname" .) }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "common.labels.standard" ( dict "customLabels" .Values.commonLabels "context" $ ) | nindent 4 }}
+    app.kubernetes.io/part-of: blobcache
+    app.kubernetes.io/component: server
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
+  {{- end }}
+data:
+  config.yaml: |
+    server:
+      mode: {{ .Values.config.server.mode | quote }}
+      diskCacheDir: {{ .Values.config.server.diskCacheDir | quote }}
+      diskCacheMaxUsagePct: {{ .Values.config.server.diskCacheMaxUsagePct }}
+      token: {{ .Values.config.server.token | default .Values.auth.token | default "" | quote }}
+      pageSizeBytes: {{ .Values.config.server.pageSizeBytes }}
+      maxCachePct: {{ .Values.config.server.maxCachePct }}
+      objectTtlS: {{ .Values.config.server.objectTtlS }}
+      s3DownloadConcurrency: {{ .Values.config.server.s3DownloadConcurrency }}
+      s3DownloadChunkSize: {{ .Values.config.server.s3DownloadChunkSize }}
+      metadata:
+        mode: {{ .Values.config.server.metadata.mode | quote }}
+        {{- if .Values.redis.enabled }}
+        redisAddr: {{ include "blobcache.redis.host" . }}:{{ include "blobcache.redis.port" . }}
+        {{- if .Values.redis.auth.enabled }}
+        redisPasswd: {{ include "blobcache.redis.password" . | quote }}
+        {{- end }}
+        redisTLSEnabled: {{ .Values.redis.tls.enabled }}
+        {{- else }}
+        redisAddr: {{ .Values.externalRedis.host }}:{{ .Values.externalRedis.port }}
+        {{- if .Values.externalRedis.password }}
+        redisPasswd: {{ .Values.externalRedis.password | quote }}
+        {{- end }}
+        redisTLSEnabled: {{ .Values.externalRedis.tls }}
+        {{- if .Values.externalRedis.database }}
+        redisDB: {{ .Values.externalRedis.database }}
+        {{- end }}
+        {{- end }}
+        {{- if .Values.config.server.metadata.redis }}
+        {{- toYaml .Values.config.server.metadata.redis | nindent 8 }}
+        {{- end }}
+      {{- if .Values.config.server.sources }}
+      sources:
+        {{- toYaml .Values.config.server.sources | nindent 8 }}
+      {{- end }}
+      {{- if .Values.config.server.regions }}
+      regions:
+        {{- toYaml .Values.config.server.regions | nindent 8 }}
+      {{- end }}
+    client:
+      token: {{ .Values.config.server.token | default .Values.auth.token | default "" | quote }}
+      nTopHosts: {{ .Values.config.client.nTopHosts }}
+      minRetryLengthBytes: {{ .Values.config.client.minRetryLengthBytes }}
+      maxGetContentAttempts: {{ .Values.config.client.maxGetContentAttempts }}
+      blobfs:
+        enabled: {{ .Values.config.client.blobfs.enabled }}
+        directIO: {{ .Values.config.client.blobfs.directIO }}
+        mountPoint: {{ .Values.config.client.blobfs.mountPoint | quote }}
+        maxBackgroundTasks: {{ .Values.config.client.blobfs.maxBackgroundTasks }}
+        maxReadAheadKB: {{ .Values.config.client.blobfs.maxReadAheadKB }}
+        {{- if .Values.config.client.blobfs.maxWriteKB }}
+        maxWriteKB: {{ .Values.config.client.blobfs.maxWriteKB }}
+        {{- end }}
+        {{- if .Values.config.client.blobfs.directMount }}
+        directMount: {{ .Values.config.client.blobfs.directMount }}
+        {{- end }}
+        {{- if .Values.config.client.blobfs.options }}
+        options:
+          {{- toYaml .Values.config.client.blobfs.options | nindent 10 }}
+        {{- end }}
+    global:
+      defaultLocality: {{ .Values.config.global.defaultLocality | quote }}
+      {{- if .Values.config.global.coordinatorHost }}
+      coordinatorHost: {{ .Values.config.global.coordinatorHost | quote }}
+      {{- else }}
+      coordinatorHost: {{ printf "%s:%d" (include "common.names.fullname" .) (int .Values.config.global.serverPort) | quote }}
+      {{- end }}
+      serverPort: {{ .Values.config.global.serverPort }}
+      discoveryIntervalS: {{ .Values.config.global.discoveryIntervalS }}
+      rttThresholdMilliseconds: {{ .Values.config.global.rttThresholdMilliseconds }}
+      hostStorageCapacityThresholdPct: {{ .Values.config.global.hostStorageCapacityThresholdPct }}
+      grpcDialTimeoutS: {{ .Values.config.global.grpcDialTimeoutS }}
+      grpcMessageSizeBytes: {{ .Values.config.global.grpcMessageSizeBytes }}
+      debugMode: {{ .Values.config.global.debugMode }}
+      prettyLogs: {{ .Values.config.global.prettyLogs }}
+    {{- if or .Values.config.metrics.pushIntervalS .Values.config.metrics.url .Values.config.metrics.username .Values.config.metrics.password }}
+    metrics:
+      {{- if .Values.config.metrics.pushIntervalS }}
+      pushIntervalS: {{ .Values.config.metrics.pushIntervalS }}
+      {{- end }}
+      {{- if .Values.config.metrics.url }}
+      url: {{ .Values.config.metrics.url | quote }}
+      {{- end }}
+      {{- if .Values.config.metrics.username }}
+      username: {{ .Values.config.metrics.username | quote }}
+      {{- end }}
+      {{- if .Values.config.metrics.password }}
+      password: {{ .Values.config.metrics.password | quote }}
+      {{- end }}
+    {{- end }}
+{{- end }} 

@@ -1,11 +1,32 @@
+annotations:
+  category: Infrastructure
+  licenses: Apache-2.0
 apiVersion: v2
-name: beam-blobcache-v2-chart
-description: A Helm chart for Blobcache
-type: application
-version: 0.1.2
-appVersion: 0.1.2
-home: https://beam.cloud
+appVersion: "0.1.2"
 dependencies:
-- name: common
-  repository: https://bjw-s-labs.github.io/helm-charts
-  version: 2.5.0
+  - name: redis
+    version: 18.9.1
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled
+  - name: common
+    repository: oci://registry-1.docker.io/bitnamicharts
+    tags:
+      - bitnami-common
+    version: 2.31.3
+description: Beam Blobcache - Distributed Cache for AI Workloads
+home: https://beam.cloud
+icon: https://avatars.githubusercontent.com/u/126977053?s=200&v=4
+keywords:
+  - cache
+  - distributed
+  - blob
+  - storage
+  - ai
+  - ml
+maintainers:
+  - name: Beam.cloud Team
+    url: https://github.com/beam-cloud/blobcache-v2
+name: blobcache
+sources:
+  - https://github.com/beam-cloud/blobcache-v2
+version: 0.1.2

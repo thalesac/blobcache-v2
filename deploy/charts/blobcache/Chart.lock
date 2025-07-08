@@ -1,6 +1,9 @@
 dependencies:
+- name: redis
+  repository: https://charts.bitnami.com/bitnami
+  version: 18.9.1
 - name: common
-  repository: https://bjw-s-labs.github.io/helm-charts
-  version: 2.5.0
-digest: sha256:9c7fd73836903c1d0a15deeb2732d39b5b363cc3d7c8a13be3adf5b6e099758e
-generated: "2025-05-03T10:37:42.036903-04:00"
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 2.31.3
+digest: sha256:835391bd2c3a9bef74671970e2438a6c4e7f2bcb3b8b08fd943d6e732b2b05c3
+generated: "2025-07-08T09:33:38.944433638-03:00"

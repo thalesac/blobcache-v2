@@ -1,24 +1,865 @@
----
-# -- See the common values.yaml for all the options you can set.
-# https://github.com/bjw-s-labs/helm-charts/blob/common-2.5.0/charts/library/common/values.yaml
+## @section Global parameters
+## Global Docker image parameters
+## Please, note that this will override the image parameters, including dependencies, configured to use the global value
+## Current available global Docker image parameters: imageRegistry, imagePullSecrets and storageClass
+##
+
+## @param global.imageRegistry Global Docker image registry
+## @param global.imagePullSecrets Global Docker registry secret names as an array
+## @param global.storageClass Global StorageClass for Persistent Volume(s)
+##
 global:
-  fullnameOverride:
+  imageRegistry: ""
+  ## E.g.
+  ## imagePullSecrets:
+  ##   - myRegistryKeySecretName
+  ##
+  imagePullSecrets: []
+  storageClass: ""
 
+## @section Common parameters
+##
+
+## @param kubeVersion Override Kubernetes version
+##
+kubeVersion: ""
+## @param nameOverride String to partially override common.names.name
+##
+nameOverride: ""
+## @param fullnameOverride String to fully override common.names.fullname
+##
+fullnameOverride: ""
+## @param namespaceOverride String to fully override common.names.namespace
+##
+namespaceOverride: ""
+## @param commonLabels Labels to add to all deployed objects
+##
+commonLabels: {}
+## @param commonAnnotations Annotations to add to all deployed objects
+##
+commonAnnotations: {}
+## @param clusterDomain Kubernetes cluster domain name
+##
+clusterDomain: cluster.local
+## @param extraDeploy Array of extra objects to deploy with the release
+##
+extraDeploy: []
+
+## Enable diagnostic mode in the deployment
+##
+diagnosticMode:
+  ## @param diagnosticMode.enabled Enable diagnostic mode (all probes will be disabled and the command will be overridden)
+  ##
+  enabled: false
+  ## @param diagnosticMode.command Command to override all containers in the deployment
+  ##
+  command:
+    - sleep
+  ## @param diagnosticMode.args Args to override all containers in the deployment
+  ##
+  args:
+    - infinity
+
+## @section Blobcache Image parameters
+##
+
+## Blobcache image
+## ref: https://hub.docker.com/r/bitnami/blobcache/tags/
+## @param image.registry [default: REGISTRY_NAME] Blobcache image registry
+## @param image.repository [default: REPOSITORY_NAME/blobcache] Blobcache image repository
+## @skip image.tag Blobcache image tag (immutable tags are recommended)
+## @param image.digest Blobcache image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
+## @param image.pullPolicy Blobcache image pull policy
+## @param image.pullSecrets Blobcache image pull secrets
+## @param image.debug Enable Blobcache image debug mode
+##
 image:
-  repository: public.ecr.aws/n4e0e1y0/beam-blobcache-v2
-  tag: 0.1.30
+  registry: public.ecr.aws
+  repository: n4e0e1y0/beam-blobcache-v2
+  tag: "0.1.30"
+  digest: ""
+  ## Specify a imagePullPolicy
+  ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
+  ## ref: http://kubernetes.io/docs/concepts/containers/images/#pre-pulling-images
+  ##
+  pullPolicy: IfNotPresent
+  ## Optionally specify an array of imagePullSecrets.
+  ## Secrets must be manually created in the namespace.
+  ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+  ## e.g:
+  ## pullSecrets:
+  ##   - myRegistryKeySecretName
+  ##
+  pullSecrets: []
+  ## Enable debug mode
+  ##
+  debug: false
 
-controllers:
-  main:
-    annotations: {}
-    labels: {}
-    replicas: 1
-    strategy: Recreate # Can be Recreate or RollingUpdate
-    rollingUpdate:
-      unavailable:
-      surge:
-    containers:
-      main:
-        resources:
-          limits: {}
-          requests: {}
+## @section Blobcache Configuration parameters
+##
+
+## Blobcache authentication parameters
+## ref: https://github.com/beam-cloud/blobcache-v2#authentication
+##
+auth:
+  ## @param auth.token Blobcache authentication token
+  ##
+  token: ""
+
+## @section Beta9 Integration Parameters
+## These configurations are optimized for use as a subchart within the Beta9 ecosystem
+## When deployed as a subchart, the blobcache will automatically integrate with:
+## - Beta9's Minio instance for object storage
+## - Beta9's Redis instance for metadata
+## - Internal service discovery for coordinator communication
+##
+
+## @param existingSecret The name of an existing secret with Blobcache credentials
+## NOTE: Must contain key `token`
+## NOTE: When it's set, the `auth.token` parameter is ignored
+##
+existingSecret: ""
+## @param existingConfigmap The name of an existing ConfigMap with your custom configuration for Blobcache
+##
+existingConfigmap: ""
+
+## Blobcache configuration
+## ref: https://github.com/beam-cloud/blobcache-v2#configuration
+##
+config:
+  ## Blobcache server configuration
+  ##
+  server:
+    ## @param config.server.mode Blobcache server mode (coordinator, slave)
+    ## coordinator: Acts as both cache server and coordinator for other blobcache instances
+    ## slave: Acts as cache server only, requires external coordinator
+    ##
+    mode: "coordinator"
+    ## @param config.server.token Server authentication token
+    ##
+    token: ""
+    ## @param config.server.diskCacheDir Disk cache directory path
+    ##
+    diskCacheDir: "/blobcache-data"
+    ## @param config.server.diskCacheMaxUsagePct Maximum disk cache usage percentage
+    ##
+    diskCacheMaxUsagePct: 0.95
+    ## @param config.server.pageSizeBytes Page size in bytes
+    ##
+    pageSizeBytes: 4000000
+    ## @param config.server.maxCachePct Maximum cache percentage
+    ##
+    maxCachePct: 60
+    ## @param config.server.objectTtlS Object TTL in seconds
+    ##
+    objectTtlS: 3600
+    ## @param config.server.s3DownloadConcurrency S3 download concurrency
+    ##
+    s3DownloadConcurrency: 16
+    ## @param config.server.s3DownloadChunkSize S3 download chunk size
+    ##
+    s3DownloadChunkSize: 64000000
+    ## Blobcache metadata configuration
+    ##
+    metadata:
+      ## @param config.server.metadata.mode Metadata storage mode (default, local)
+      ##
+      mode: "default"
+      ## @param config.server.metadata.redis Additional Redis configuration
+      ##
+      redis: {}
+    ## @param config.server.sources Content sources configuration
+    ## Default sources configured for Beta9 integration with Minio
+    ##
+    sources:
+      - mode: mountpoint
+        fsName: beta9-images
+        fsPath: /images
+        mountpoint:
+          bucketName: beta9-images
+          region: us-east-1
+          accessKey: minioadmin
+          secretKey: minioadmin
+          endpointUrl: http://minio:9000
+          forcePathStyle: true
+      - mode: mountpoint
+        fsName: beta9-fs
+        fsPath: /data
+        mountpoint:
+          bucketName: beta9-fs
+          region: us-east-1
+          accessKey: minioadmin
+          secretKey: minioadmin
+          endpointUrl: http://minio:9000
+          forcePathStyle: true
+    ## @param config.server.regions Region-specific configurations
+    ##
+    regions: {}
+  ## Blobcache client configuration
+  ##
+  client:
+    ## @param config.client.nTopHosts Number of top hosts to use
+    ##
+    nTopHosts: 3
+    ## @param config.client.minRetryLengthBytes Minimum retry length in bytes
+    ##
+    minRetryLengthBytes: 10000000
+    ## @param config.client.maxGetContentAttempts Maximum get content attempts
+    ##
+    maxGetContentAttempts: 3
+    ## BlobFS configuration
+    ##
+    blobfs:
+      ## @param config.client.blobfs.enabled Enable BlobFS
+      ##
+      enabled: true
+      ## @param config.client.blobfs.directIO Enable direct IO
+      ##
+      directIO: false
+      ## @param config.client.blobfs.mountPoint Mount point path
+      ##
+      mountPoint: "/cache"
+      ## @param config.client.blobfs.maxBackgroundTasks Maximum background tasks
+      ##
+      maxBackgroundTasks: 256
+      ## @param config.client.blobfs.maxReadAheadKB Maximum read ahead in KB
+      ##
+      maxReadAheadKB: 1024
+      ## @param config.client.blobfs.maxWriteKB Maximum write size in KB
+      ##
+      maxWriteKB: 1024
+      ## @param config.client.blobfs.directMount Enable direct mount
+      ##
+      directMount: false
+      ## @param config.client.blobfs.options Additional mount options
+      ##
+      options:
+        - max_read=1048576
+  ## Blobcache global configuration
+  ##
+  global:
+    ## @param config.global.defaultLocality Default locality/region
+    ##
+    defaultLocality: "default"
+    ## @param config.global.coordinatorHost Coordinator host address (internal service when used as subchart)
+    ##
+    coordinatorHost: ""
+    ## @param config.global.serverPort Server port number
+    ##
+    serverPort: 2049
+    ## @param config.global.discoveryIntervalS Discovery interval in seconds
+    ##
+    discoveryIntervalS: 5
+    ## @param config.global.rttThresholdMilliseconds RTT threshold in milliseconds
+    ##
+    rttThresholdMilliseconds: 1000
+    ## @param config.global.hostStorageCapacityThresholdPct Host storage capacity threshold percentage
+    ##
+    hostStorageCapacityThresholdPct: 0.95
+    ## @param config.global.grpcDialTimeoutS GRPC dial timeout in seconds
+    ##
+    grpcDialTimeoutS: 1
+    ## @param config.global.grpcMessageSizeBytes GRPC message size in bytes
+    ##
+    grpcMessageSizeBytes: 1073741824
+    ## @param config.global.debugMode Enable debug mode
+    ##
+    debugMode: false
+    ## @param config.global.prettyLogs Enable pretty logs
+    ##
+    prettyLogs: true
+  ## Blobcache metrics configuration
+  ##
+  metrics:
+    ## @param config.metrics.pushIntervalS Metrics push interval in seconds
+    ##
+    pushIntervalS: 30
+    ## @param config.metrics.url Metrics endpoint URL
+    ##
+    url: ""
+    ## @param config.metrics.username Metrics endpoint username
+    ##
+    username: ""
+    ## @param config.metrics.password Metrics endpoint password
+    ##
+    password: ""
+
+## @param command Override default container command (useful when using custom images)
+##
+command: []
+## @param args Override default container args (useful when using custom images)
+##
+args: []
+## @param hostAliases [array] Blobcache pods host aliases
+## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
+##
+hostAliases: []
+## @param extraEnvVars Array with extra environment variables to add to Blobcache nodes
+## e.g:
+## extraEnvVars:
+##   - name: FOO
+##     value: "bar"
+##
+extraEnvVars: []
+## @param extraEnvVarsCM Name of existing ConfigMap containing extra env vars for Blobcache nodes
+##
+extraEnvVarsCM: ""
+## @param extraEnvVarsSecret Name of existing Secret containing extra env vars for Blobcache nodes
+##
+extraEnvVarsSecret: ""
+
+## @section Blobcache deployment parameters
+##
+
+## @param replicaCount Number of Blobcache replicas to deploy
+##
+replicaCount: 1
+
+## @param updateStrategy.type Blobcache deployment strategy type
+## ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
+## e.g:
+## updateStrategy:
+##  type: RollingUpdate
+##  rollingUpdate:
+##    maxSurge: 25%
+##    maxUnavailable: 25%
+##
+updateStrategy:
+  ## StrategyType
+  ## Can be set to RollingUpdate or Recreate
+  ##
+  type: RollingUpdate
+
+## @param containerPorts.grpc Blobcache GRPC container port
+##
+containerPorts:
+  grpc: 2049
+
+## Configure extra options for Blobcache containers' liveness and readiness probes
+## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
+## @param livenessProbe.enabled Enable livenessProbe on Blobcache containers
+## @param livenessProbe.initialDelaySeconds Initial delay seconds for livenessProbe
+## @param livenessProbe.periodSeconds Period seconds for livenessProbe
+## @param livenessProbe.timeoutSeconds Timeout seconds for livenessProbe
+## @param livenessProbe.failureThreshold Failure threshold for livenessProbe
+## @param livenessProbe.successThreshold Success threshold for livenessProbe
+##
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+## @param readinessProbe.enabled Enable readinessProbe on Blobcache containers
+## @param readinessProbe.initialDelaySeconds Initial delay seconds for readinessProbe
+## @param readinessProbe.periodSeconds Period seconds for readinessProbe
+## @param readinessProbe.timeoutSeconds Timeout seconds for readinessProbe
+## @param readinessProbe.failureThreshold Failure threshold for readinessProbe
+## @param readinessProbe.successThreshold Success threshold for readinessProbe
+##
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+## @param startupProbe.enabled Enable startupProbe on Blobcache containers
+## @param startupProbe.initialDelaySeconds Initial delay seconds for startupProbe
+## @param startupProbe.periodSeconds Period seconds for startupProbe
+## @param startupProbe.timeoutSeconds Timeout seconds for startupProbe
+## @param startupProbe.failureThreshold Failure threshold for startupProbe
+## @param startupProbe.successThreshold Success threshold for startupProbe
+##
+startupProbe:
+  enabled: false
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 1
+  failureThreshold: 15
+  successThreshold: 1
+
+## @param customLivenessProbe Custom livenessProbe that overrides the default one
+##
+customLivenessProbe: {}
+## @param customReadinessProbe Custom readinessProbe that overrides the default one
+##
+customReadinessProbe: {}
+## @param customStartupProbe Custom startupProbe that overrides the default one
+##
+customStartupProbe: {}
+
+## Blobcache resource requests and limits
+## ref: http://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+## @param resources.limits The resources limits for the Blobcache containers
+## @param resources.requests The requested resources for the Blobcache containers
+##
+resources:
+  limits: {}
+  requests: {}
+
+## Configure Pods Security Context
+## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+## @param podSecurityContext.enabled Enabled Blobcache pods' Security Context
+## @param podSecurityContext.fsGroup Set Blobcache pod's Security Context fsGroup
+##
+podSecurityContext:
+  enabled: true
+  fsGroup: 1001
+
+## Configure Container Security Context
+## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+## @param containerSecurityContext.enabled Enabled containers' Security Context
+## @param containerSecurityContext.seLinuxOptions [object,nullable] Set SELinux options in container
+## @param containerSecurityContext.runAsUser Set containers' Security Context runAsUser
+## @param containerSecurityContext.runAsNonRoot Set container's Security Context runAsNonRoot
+## @param containerSecurityContext.privileged Set container's Security Context privileged
+## @param containerSecurityContext.readOnlyRootFilesystem Set container's Security Context readOnlyRootFilesystem
+## @param containerSecurityContext.allowPrivilegeEscalation Set container's Security Context allowPrivilegeEscalation
+## @param containerSecurityContext.capabilities.drop List of capabilities to be dropped
+## @param containerSecurityContext.seccompProfile.type Set container's Security Context seccomp profile
+##
+containerSecurityContext:
+  enabled: true
+  seLinuxOptions: {}
+  runAsUser: 1001
+  runAsNonRoot: true
+  privileged: false
+  readOnlyRootFilesystem: false
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+  seccompProfile:
+    type: "RuntimeDefault"
+
+## @param existingConfigmap The name of an existing ConfigMap with your custom configuration for Blobcache
+##
+existingConfigmap: ""
+
+## @param lifecycleHooks for the Blobcache container(s) to automate configuration before or after startup
+##
+lifecycleHooks: {}
+
+## @param extraVolumes Optionally specify extra list of additional volumes for the Blobcache pod(s)
+##
+extraVolumes: []
+
+## @param extraVolumeMounts Optionally specify extra list of additional volumeMounts for the Blobcache container(s)
+##
+extraVolumeMounts: []
+
+## @param sidecars Add additional sidecar containers to the Blobcache pod(s)
+## e.g:
+## sidecars:
+##   - name: your-image-name
+##     image: your-image
+##     imagePullPolicy: Always
+##     ports:
+##       - name: portname
+##         containerPort: 1234
+##
+sidecars: []
+
+## @param initContainers Add additional init containers to the Blobcache pod(s)
+## ref: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
+## e.g:
+## initContainers:
+##  - name: your-image-name
+##    image: your-image
+##    imagePullPolicy: Always
+##    command: ['sh', '-c', 'echo "hello world"']
+##
+initContainers: []
+
+## @section Traffic Exposure Parameters
+##
+
+## Blobcache service parameters
+##
+service:
+  ## @param service.type Blobcache service type
+  ##
+  type: ClusterIP
+  ## @param service.ports.grpc Blobcache service GRPC port
+  ##
+  ports:
+    grpc: 2049
+  ## @param service.targetPort.grpc Target port for GRPC
+  ##
+  targetPort:
+    grpc: grpc
+  ## Node ports to expose
+  ## @param service.nodePorts.grpc Node port for GRPC
+  ## NOTE: choose port between <30000-32767>
+  ##
+  nodePorts:
+    grpc: ""
+  ## @param service.clusterIP Blobcache service Cluster IP
+  ## e.g.:
+  ## clusterIP: None
+  ##
+  clusterIP: ""
+  ## @param service.loadBalancerIP Blobcache service Load Balancer IP
+  ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#type-loadbalancer
+  ##
+  loadBalancerIP: ""
+  ## @param service.loadBalancerSourceRanges Blobcache service Load Balancer sources
+  ## ref: https://kubernetes.io/docs/tasks/access-application-cluster/configure-cloud-provider-firewall/#restrict-access-for-loadbalancer-service
+  ## e.g:
+  ## loadBalancerSourceRanges:
+  ##   - 10.10.10.0/24
+  ##
+  loadBalancerSourceRanges: []
+  ## @param service.externalTrafficPolicy Blobcache service external traffic policy
+  ## ref http://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/#preserving-the-client-source-ip
+  ##
+  externalTrafficPolicy: Cluster
+  ## @param service.annotations Additional custom annotations for Blobcache service
+  ##
+  annotations: {}
+  ## @param service.extraPorts Extra ports to expose in Blobcache service (normally used with the `sidecars` value)
+  ##
+  extraPorts: []
+  ## @param service.sessionAffinity Control where client requests go, to the same pod or round-robin
+  ## Values: ClientIP or None
+  ## ref: https://kubernetes.io/docs/concepts/services-networking/service/
+  ##
+  sessionAffinity: None
+  ## @param service.sessionAffinityConfig Additional settings for the sessionAffinity
+  ## sessionAffinityConfig:
+  ##   clientIP:
+  ##     timeoutSeconds: 300
+  ##
+  sessionAffinityConfig: {}
+
+## @section Persistence Parameters
+##
+
+## Enable persistence using Persistent Volume Claims
+## ref: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
+##
+persistence:
+  ## @param persistence.enabled Enable persistence using Persistent Volume Claims
+  ##
+  enabled: true
+  ## @param persistence.mountPath Path to mount the volume at.
+  ##
+  mountPath: /blobcache-data
+  ## @param persistence.subPath The subdirectory of the volume to mount to, useful in dev environments and one PV for multiple services
+  ##
+  subPath: ""
+  ## @param persistence.storageClass Storage class of backing PVC
+  ## If defined, storageClassName: <storageClass>
+  ## If set to "-", storageClassName: "", which disables dynamic provisioning
+  ## If undefined (the default) or set to null, no storageClassName spec is
+  ##   set, choosing the default provisioner.  (gp2 on AWS, standard on
+  ##   GKE, AWS & OpenStack)
+  ##
+  storageClass: ""
+  ## @param persistence.annotations Persistent Volume Claim annotations
+  ##
+  annotations: {}
+  ## @param persistence.accessModes Persistent Volume Access Modes
+  ##
+  accessModes:
+    - ReadWriteOnce
+  ## @param persistence.size Size of data volume
+  ##
+  size: 50Gi
+  ## @param persistence.existingClaim The name of an existing PVC to use for persistence
+  ##
+  existingClaim: ""
+  ## @param persistence.selector Selector to match an existing Persistent Volume for Blobcache data PVC
+  ## If set, the PVC can't have a PV dynamically provisioned for it
+  ## E.g.
+  ## selector:
+  ##   matchLabels:
+  ##     app: my-app
+  ##
+  selector: {}
+  ## @param persistence.dataSource Custom PVC data source
+  ##
+  dataSource: {}
+
+## @section Init Container Parameters
+##
+
+## 'volume-permissions' init container parameters
+## Changes the owner and group of the persistent volume mount point to runAsUser:fsGroup values
+##   based on the *podSecurityContext/*containerSecurityContext parameters
+##
+volumePermissions:
+  ## @param volumePermissions.enabled Enable init container that changes the owner/group of the PV mount point to the runAsUser:fsGroup
+  ##
+  enabled: false
+  ## OS Shell + Utility image
+  ## ref: https://hub.docker.com/r/bitnami/os-shell/tags/
+  ## @param volumePermissions.image.registry [default: REGISTRY_NAME] OS Shell + Utility image registry
+  ## @param volumePermissions.image.repository [default: REPOSITORY_NAME/os-shell] OS Shell + Utility image repository
+  ## @skip volumePermissions.image.tag OS Shell + Utility image tag (immutable tags are recommended)
+  ## @param volumePermissions.image.digest OS Shell + Utility image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
+  ## @param volumePermissions.image.pullPolicy OS Shell + Utility image pull policy
+  ## @param volumePermissions.image.pullSecrets OS Shell + Utility image pull secrets
+  ##
+  image:
+    registry: docker.io
+    repository: bitnami/os-shell
+    tag: 12-debian-12-r46
+    digest: ""
+    pullPolicy: IfNotPresent
+    ## Optionally specify an array of imagePullSecrets.
+    ## Secrets must be manually created in the namespace.
+    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+    ## Example:
+    ## pullSecrets:
+    ##   - myRegistryKeySecretName
+    ##
+    pullSecrets: []
+  ## Init container's resource requests and limits
+  ## ref: http://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
+  ## @param volumePermissions.resources.limits The resources limits for the init container
+  ## @param volumePermissions.resources.requests The requested resources for the init container
+  ##
+  resources:
+    limits: {}
+    requests: {}
+  ## Init container Container Security Context
+  ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+  ## @param volumePermissions.containerSecurityContext.enabled Enabled init container' Security Context
+  ## @param volumePermissions.containerSecurityContext.seLinuxOptions [object,nullable] Set SELinux options in init container
+  ## @param volumePermissions.containerSecurityContext.runAsUser Set init container's Security Context runAsUser
+  ## @param volumePermissions.containerSecurityContext.privileged Set init container's Security Context privileged
+  ## @param volumePermissions.containerSecurityContext.allowPrivilegeEscalation Set init container's Security Context allowPrivilegeEscalation
+  ## @param volumePermissions.containerSecurityContext.capabilities.drop List of capabilities to be dropped in init container
+  ## @param volumePermissions.containerSecurityContext.seccompProfile.type Set init container's Security Context seccomp profile
+  ##
+  containerSecurityContext:
+    enabled: true
+    seLinuxOptions: {}
+    runAsUser: 0
+    privileged: false
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
+    seccompProfile:
+      type: "RuntimeDefault"
+
+## @section Other Parameters
+##
+
+## Init image
+## ref: https://hub.docker.com/r/bitnami/os-shell/tags/
+## @param initImage.registry [default: REGISTRY_NAME] OS Shell + Utility image registry
+## @param initImage.repository [default: REPOSITORY_NAME/os-shell] OS Shell + Utility image repository
+## @skip initImage.tag OS Shell + Utility image tag (immutable tags are recommended)
+## @param initImage.digest OS Shell + Utility image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
+## @param initImage.pullPolicy OS Shell + Utility image pull policy
+## @param initImage.pullSecrets OS Shell + Utility image pull secrets
+##
+initImage:
+  registry: docker.io
+  repository: bitnami/os-shell
+  tag: 12-debian-12-r46
+  digest: ""
+  pullPolicy: IfNotPresent
+  ## Optionally specify an array of imagePullSecrets.
+  ## Secrets must be manually created in the namespace.
+  ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+  ## Example:
+  ## pullSecrets:
+  ##   - myRegistryKeySecretName
+  ##
+  pullSecrets: []
+
+## ServiceAccount configuration
+## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+##
+serviceAccount:
+  ## @param serviceAccount.create Specifies whether a ServiceAccount should be created
+  ##
+  create: true
+  ## @param serviceAccount.name The name of the ServiceAccount to use.
+  ## If not set and create is true, a name is generated using the common.names.fullname template
+  ##
+  name: ""
+  ## @param serviceAccount.annotations Additional Service Account annotations (evaluated as a template)
+  ##
+  annotations: {}
+  ## @param serviceAccount.automountServiceAccountToken Automount service account token for the server service account
+  ##
+  automountServiceAccountToken: true
+
+## @section Autoscaling parameters
+##
+
+## HPA configuration
+##
+autoscaling:
+  ## @param autoscaling.hpa.enabled Enable Horizontal Pod Autoscaler (HPA) for Blobcache
+  ##
+  hpa:
+    enabled: false
+    ## @param autoscaling.hpa.minReplicas Minimum number of Blobcache replicas
+    ##
+    minReplicas: 1
+    ## @param autoscaling.hpa.maxReplicas Maximum number of Blobcache replicas
+    ##
+    maxReplicas: 11
+    ## @param autoscaling.hpa.targetCPU Target CPU utilization percentage
+    ##
+    targetCPU: 50
+    ## @param autoscaling.hpa.targetMemory Target Memory utilization percentage
+    ##
+    targetMemory: 50
+
+## @section Scheduling parameters
+##
+
+## @param nodeSelector Node labels for Blobcache pods assignment
+## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+##
+nodeSelector: {}
+
+## @param tolerations Tolerations for Blobcache pods assignment
+## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+##
+tolerations: []
+
+## @param affinity Affinity for Blobcache pods assignment
+## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+##
+affinity: {}
+
+## @param podAffinityPreset Pod affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
+## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
+##
+podAffinityPreset: ""
+
+## @param podAntiAffinityPreset Pod anti-affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
+## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
+##
+podAntiAffinityPreset: soft
+
+## Node affinity preset
+## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity
+##
+nodeAffinityPreset:
+  ## @param nodeAffinityPreset.type Node affinity preset type. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
+  ##
+  type: ""
+  ## @param nodeAffinityPreset.key Node label key to match. Ignored if `affinity` is set
+  ##
+  key: ""
+  ## @param nodeAffinityPreset.values Node label values to match. Ignored if `affinity` is set
+  ## E.g.
+  ## values:
+  ##   - e2e-az1
+  ##   - e2e-az2
+  ##
+  values: []
+
+## @param topologySpreadConstraints Topology Spread Constraints for pod assignment spread across your cluster among failure-domains. Evaluated as a template
+## Ref: https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/#spread-constraints-for-pods
+##
+topologySpreadConstraints: []
+
+## @param podLabels Extra labels for Blobcache pods
+## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+##
+podLabels: {}
+
+## @param podAnnotations Annotations for Blobcache pods
+## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+##
+podAnnotations: {}
+
+## @param priorityClassName Blobcache pods' priorityClassName
+##
+priorityClassName: ""
+
+## @param schedulerName Kubernetes pod scheduler registry
+## https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers/
+##
+schedulerName: ""
+
+## @param terminationGracePeriodSeconds Seconds the pod needs to terminate gracefully
+## ref: https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods
+##
+terminationGracePeriodSeconds: ""
+
+## @section Redis&reg; sub-chart parameters
+
+## Redis&reg; chart configuration
+## ref: https://github.com/bitnami/charts/blob/main/bitnami/redis/values.yaml
+##
+redis:
+  ## @param redis.enabled Deploy a Redis&reg; server to satisfy the applications database requirements
+  ##
+  enabled: true
+  ## Redis&reg; authentication parameters
+  ## ref: https://github.com/bitnami/containers/tree/main/bitnami/redis#setting-up-replication
+  ##
+  auth:
+    ## @param redis.auth.enabled Enable password authentication
+    ##
+    enabled: true
+    ## @param redis.auth.password Redis&reg; password
+    ## Defaults to a random 10-character alphanumeric string if not set
+    ##
+    password: ""
+    ## @param redis.auth.existingSecret The name of an existing secret with Redis&reg; credentials
+    ## NOTE: When it's set, the previous `redis.auth.password` parameter is ignored
+    ##
+    existingSecret: ""
+    ## @param redis.auth.existingSecretPasswordKey Password key to be retrieved from existing secret
+    ## NOTE: ignored unless `redis.auth.existingSecret` parameter is set
+    ##
+    existingSecretPasswordKey: ""
+  ## @param redis.architecture Redis&reg; architecture. Allowed values: `standalone` or `replication`
+  ##
+  architecture: standalone
+
+## External Redis&reg; configuration
+## All of these values are only used when `redis.enabled` is set to `false`
+##
+externalRedis:
+  ## @param externalRedis.host External Redis&reg; host
+  ##
+  host: ""
+  ## @param externalRedis.port External Redis&reg; port number
+  ##
+  port: 6379
+  ## @param externalRedis.password External Redis&reg; password
+  ##
+  password: ""
+  ## @param externalRedis.database External Redis&reg; database number
+  ##
+  database: 0
+  ## @param externalRedis.existingSecret Name of an existing Kubernetes secret containing the Redis&reg; password (key `redis-password`)
+  ##
+  existingSecret: ""
+  ## @param externalRedis.existingSecretPasswordKey Name of the key containing the password in the existing Kubernetes secret
+  ##
+  existingSecretPasswordKey: "redis-password"
+  ## @param externalRedis.tls Enable TLS encryption for Redis&reg; connection
+  ##
+  tls: false
+
+## @section Metrics Parameters
+##
+
+## Prometheus metrics
+##
+metrics:
+  ## @param metrics.enabled Enable the export of Prometheus metrics
+  ##
+  enabled: false
+  ## @param metrics.podAnnotations [object] Annotations for Blobcache exporter pods
+  ##
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "2049"
+    prometheus.io/path: "/metrics"
